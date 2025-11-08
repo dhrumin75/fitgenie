@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/content-scripts",
+    "types": [
+      "chrome"
+    ]
+  },
+  "include": [
+    "src/content-scripts/**/*.ts"
+  ]
+}
+

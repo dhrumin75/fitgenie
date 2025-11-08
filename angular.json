@@ -1,0 +1,117 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "newProjectRoot": "projects",
+  "projects": {
+    "fitgenie": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "fg",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:application",
+          "options": {
+            "outputPath": "dist/extension",
+            "index": "src/popup.html",
+            "main": "src/main.ts",
+            "polyfills": [
+              "zone.js"
+            ],
+            "tsConfig": "tsconfig.app.json",
+            "assets": [
+              "src/assets",
+              {
+                "glob": "manifest.json",
+                "input": ".",
+                "output": "."
+              },
+              {
+                "glob": "**/*",
+                "input": "dist/background",
+                "output": "background"
+              },
+              {
+                "glob": "**/*",
+                "input": "dist/content-scripts",
+                "output": "content-scripts"
+              }
+            ],
+            "styles": [
+              "src/styles.css"
+            ],
+            "inlineStyleLanguage": "css"
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kb",
+                  "maximumError": "1mb"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kb",
+                  "maximumError": "8kb"
+                }
+              ],
+              "outputHashing": "none"
+            }
+          }
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "configurations": {
+            "production": {
+              "browserTarget": "fitgenie:build:production"
+            },
+            "development": {
+              "browserTarget": "fitgenie:build"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": [
+              "src/**/*.ts",
+              "src/**/*.html"
+            ]
+          }
+        }
+      }
+    },
+    "background": {
+      "projectType": "application",
+      "root": "src/background",
+      "sourceRoot": "src/background",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:tsc",
+          "options": {
+            "tsConfig": "tsconfig.background.json",
+            "outputPath": "dist/background"
+          }
+        }
+      }
+    },
+    "content-scripts": {
+      "projectType": "application",
+      "root": "src/content-scripts",
+      "sourceRoot": "src/content-scripts",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:tsc",
+          "options": {
+            "tsConfig": "tsconfig.content.json",
+            "outputPath": "dist/content-scripts"
+          }
+        }
+      }
+    }
+  },
+  "defaultProject": "fitgenie"
+}
+

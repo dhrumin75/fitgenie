@@ -1,0 +1,45 @@
+{
+  "name": "fitgenie",
+  "version": "0.0.1",
+  "description": "FitGenie — Gemini-powered virtual try-on assistant for online shopping.",
+  "private": true,
+  "scripts": {
+    "ng": "ng",
+    "build": "ng build fitgenie",
+    "build:background": "ng run background:build",
+    "build:content": "ng run content-scripts:build",
+    "build:extension": "npm run build:background && npm run build:content && npm run build",
+    "lint": "ng lint",
+    "start": "ng serve fitgenie"
+  },
+  "dependencies": {
+    "@angular/animations": "^17.3.0",
+    "@angular/common": "^17.3.0",
+    "@angular/compiler": "^17.3.0",
+    "@angular/core": "^17.3.0",
+    "@angular/forms": "^17.3.0",
+    "@angular/platform-browser": "^17.3.0",
+    "@angular/platform-browser-dynamic": "^17.3.0",
+    "@angular/router": "^17.3.0",
+    "rxjs": "^7.8.1",
+    "tslib": "^2.6.2",
+    "zone.js": "^0.14.5"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^17.3.0",
+    "@angular-eslint/builder": "^17.3.0",
+    "@angular-eslint/eslint-plugin": "^17.3.0",
+    "@angular-eslint/eslint-plugin-template": "^17.3.0",
+    "@angular-eslint/template-parser": "^17.3.0",
+    "@angular/cli": "^17.3.0",
+    "@angular/compiler-cli": "^17.3.0",
+    "@types/chrome": "^0.0.266",
+    "@types/node": "^20.11.17",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.13.0"
+  }
+}
+
