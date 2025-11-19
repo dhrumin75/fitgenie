@@ -5,7 +5,9 @@ import { ProductMetadata, TryOnResult, UserProfile } from '../../models/try-on.m
 import { MessageService } from '../../services/message.service';
 import { ChromeStorageService } from '../../services/chrome-storage.service';
 import {
+  ProductCaptureFinishedMessage,
   ProductSelectionMessage,
+  ProductSelectionsUpdatedMessage,
   RuntimeMessage,
   TryOnResultMessage,
   UserPhotoUpdatedMessage
@@ -30,7 +32,10 @@ import { ResultViewerComponent } from '../result-viewer/result-viewer.component'
       <fg-product-gallery
         [products]="products()"
         [activeProduct]="activeProductId()"
+        [captureActive]="isCaptureActive()"
+        [capturePending]="isCapturePending()"
         (productSelected)="onProductSelected($event)"
+        (captureRequested)="startProductCapture()"
       />
 
       <section class="actions">
@@ -104,9 +109,13 @@ export class PopupComponent {
   private readonly latestResult = signal<TryOnResult | null>(null);
   private readonly busy = signal(false);
   private readonly error = signal<string | null>(null);
+  private readonly captureActiveFlag = signal(false);
+  private readonly capturePendingFlag = signal(false);
 
   constructor() {
     this.restoreUserProfile();
+    this.restoreProductSelections();
+    this.restoreTryOnResult();
     this.listenForMessages();
     this.observeStorageUpdates();
   }
@@ -117,6 +126,8 @@ export class PopupComponent {
   tryOnResult = () => this.latestResult();
   isBusy = () => this.busy();
   errorMessage = () => this.error();
+  isCaptureActive = () => this.captureActiveFlag();
+  isCapturePending = () => this.capturePendingFlag();
 
   canRequestTryOn = () => Boolean(this.profile() && this.selectedProductId());
 
@@ -209,6 +220,40 @@ export class PopupComponent {
     }
   }
 
+  async startProductCapture(): Promise<void> {
+    if (this.capturePendingFlag() || this.captureActiveFlag()) {
+      return;
+    }
+
+    this.capturePendingFlag.set(true);
+    this.captureActiveFlag.set(false);
+    this.error.set(null);
+
+    try {
+      console.log('[FitGenie Popup] Sending product:capture:start message');
+      const response = await this.messageService.sendMessage<{ ok?: boolean; error?: string }>({
+        type: 'product:capture:start'
+      });
+      console.log('[FitGenie Popup] Received response:', response);
+
+      if (response && response.ok === false) {
+        this.capturePendingFlag.set(false);
+        this.captureActiveFlag.set(false);
+        this.error.set(response.error ?? 'Unable to activate capture on this page.');
+        return;
+      }
+
+      this.capturePendingFlag.set(false);
+      this.captureActiveFlag.set(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : typeof error === 'string' ? error : null;
+      console.error('Failed to initiate product capture', error instanceof Error ? error : JSON.stringify(error));
+      this.capturePendingFlag.set(false);
+      this.captureActiveFlag.set(false);
+      this.error.set(message ?? 'Unable to activate capture on this page. Allow FitGenie for this site and try again.');
+    }
+  }
+
   private async restoreUserProfile(): Promise<void> {
     try {
       const stored = await this.storageService.getUserPhoto();
@@ -238,6 +283,15 @@ export class PopupComponent {
     switch (message.type) {
       case 'product:selected':
         this.applyProductSelection(message);
+        break;
+      case 'products:updated':
+        this.applyProductCollection(message);
+        break;
+      case 'product:capture:activated':
+        this.handleCaptureActivated();
+        break;
+      case 'product:capture:finished':
+        this.handleCaptureFinished(message as ProductCaptureFinishedMessage);
         break;
       case 'try-on:result':
         this.consumeTryOnResult(message);
@@ -269,16 +323,37 @@ export class PopupComponent {
 
     this.productSelections.set(products.slice(0, 12));
     this.selectedProductId.set(nextProduct.id);
+    this.captureActiveFlag.set(false);
+    this.capturePendingFlag.set(false);
   }
 
-  private consumeTryOnResult(message: TryOnResultMessage): void {
+  private async consumeTryOnResult(message: TryOnResultMessage): Promise<void> {
     this.busy.set(false);
-    this.latestResult.set({
+    const result: TryOnResult = {
       requestId: message.payload.requestId,
       generatedImageUrl: message.payload.generatedImageUrl,
       confidence: message.payload.confidence,
       generatedAt: new Date().toISOString()
-    });
+    };
+    this.latestResult.set(result);
+    
+    // Persist the result to storage
+    try {
+      await this.storageService.saveTryOnResult(result);
+    } catch (error) {
+      console.error('Failed to save try-on result', error);
+    }
+  }
+
+  private async restoreTryOnResult(): Promise<void> {
+    try {
+      const stored = await this.storageService.getTryOnResult();
+      if (stored) {
+        this.latestResult.set(stored);
+      }
+    } catch (err) {
+      console.error('Failed to restore try-on result', err);
+    }
   }
 
   private applyUserPhotoUpdate(message: UserPhotoUpdatedMessage): void {
@@ -292,6 +367,59 @@ export class PopupComponent {
       photoDataUrl: payload.dataUrl,
       uploadedAt: payload.uploadedAt
     });
+  }
+
+  private async restoreProductSelections(): Promise<void> {
+    try {
+      const response = await this.messageService.sendMessage<{ ok?: boolean; products?: ProductMetadata[] }>({
+        type: 'products:get'
+      });
+
+      if (response?.products?.length) {
+        this.productSelections.set(response.products);
+        const firstProduct = response.products[0];
+        if (firstProduct) {
+          this.selectedProductId.set(firstProduct.id);
+        }
+      }
+    } catch (error) {
+      console.error(
+        'Failed to restore product selections',
+        error instanceof Error ? error : JSON.stringify(error)
+      );
+    }
+  }
+
+  private applyProductCollection(message: ProductSelectionsUpdatedMessage): void {
+    const currentSelection = this.selectedProductId();
+    const incomingProducts = message.payload.products ?? [];
+    this.productSelections.set(incomingProducts);
+
+    if (!incomingProducts.length) {
+      this.selectedProductId.set(null);
+      return;
+    }
+
+    const hasCurrentSelection = currentSelection && incomingProducts.some((product) => product.id === currentSelection);
+    if (hasCurrentSelection) {
+      this.selectedProductId.set(currentSelection);
+    } else {
+      this.selectedProductId.set(incomingProducts[0]?.id ?? null);
+    }
+  }
+
+  private handleCaptureActivated(): void {
+    this.capturePendingFlag.set(false);
+    this.captureActiveFlag.set(true);
+  }
+
+  private handleCaptureFinished(message: ProductCaptureFinishedMessage): void {
+    this.captureActiveFlag.set(false);
+    this.capturePendingFlag.set(false);
+
+    if (message.payload?.reason === 'error') {
+      this.error.set(message.payload.message ?? 'Unable to capture product. Please try again.');
+    }
   }
 }
 

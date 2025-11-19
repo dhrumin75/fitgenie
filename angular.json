@@ -10,7 +10,7 @@
       "prefix": "fg",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:application",
+          "builder": "@angular-devkit/build-angular:browser",
           "options": {
             "outputPath": "dist/extension",
             "index": "src/popup.html",
@@ -28,6 +28,16 @@
               },
               {
                 "glob": "**/*",
+                "input": "config",
+                "output": "config"
+              },
+              {
+                "glob": "service-worker.js",
+                "input": "dist/background",
+                "output": "background"
+              },
+              {
+                "glob": "service-worker.js.map",
                 "input": "dist/background",
                 "output": "background"
               },
@@ -82,36 +92,10 @@
           }
         }
       }
-    },
-    "background": {
-      "projectType": "application",
-      "root": "src/background",
-      "sourceRoot": "src/background",
-      "architect": {
-        "build": {
-          "builder": "@angular-devkit/build-angular:tsc",
-          "options": {
-            "tsConfig": "tsconfig.background.json",
-            "outputPath": "dist/background"
-          }
-        }
-      }
-    },
-    "content-scripts": {
-      "projectType": "application",
-      "root": "src/content-scripts",
-      "sourceRoot": "src/content-scripts",
-      "architect": {
-        "build": {
-          "builder": "@angular-devkit/build-angular:tsc",
-          "options": {
-            "tsConfig": "tsconfig.content.json",
-            "outputPath": "dist/content-scripts"
-          }
-        }
-      }
     }
   },
-  "defaultProject": "fitgenie"
+  "cli": {
+    "analytics": false
+  }
 }
 

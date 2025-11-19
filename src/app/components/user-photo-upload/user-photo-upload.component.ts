@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -133,19 +133,19 @@ export class UserPhotoUploadComponent {
   private readonly busy = signal(false);
   @ViewChild('fileInput', { static: false }) private readonly fileInputRef?: ElementRef<HTMLInputElement>;
 
-  @Input({ required: false })
-  set photoDataUrl(value: string | null | undefined) {
+  @Input({ alias: 'photoDataUrl' })
+  set photoDataUrlInput(value: string | null | undefined) {
     this.photo.set(value ?? null);
   }
 
-  photoDataUrl = () => this.photo();
+  readonly photoDataUrl = computed(() => this.photo());
 
-  @Input({ required: false })
-  set uploading(value: boolean | null | undefined) {
+  @Input({ alias: 'uploading' })
+  set uploadingInput(value: boolean | null | undefined) {
     this.busy.set(Boolean(value));
   }
 
-  isBusy = () => this.busy();
+  readonly isBusy = computed(() => this.busy());
 
   @Output() readonly photoSelected = new EventEmitter<string>();
   @Output() readonly photoCleared = new EventEmitter<void>();

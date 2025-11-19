@@ -5,14 +5,26 @@ import { ProductMetadata } from '../../models/try-on.models';
 @Component({
   selector: 'fg-product-gallery',
   standalone: true,
-  imports: [CommonModule, NgOptimizedImage],
+  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="gallery">
       <header class="gallery__header">
-        <h2>Selected Products</h2>
-        <p *ngIf="!products().length">Choose an item on the store page to see it here.</p>
-        <p *ngIf="products().length">Tap an item to run a virtual try-on.</p>
+        <div class="gallery__header-bar">
+          <h2>Selected Products</h2>
+          <button
+            type="button"
+            class="gallery__capture-button"
+            (click)="onCaptureClick()"
+            [disabled]="capturePending() || captureActive()"
+          >
+            {{ captureButtonLabel() }}
+          </button>
+        </div>
+
+        <p *ngIf="captureActive()">Hover an item on the store page and click to capture it.</p>
+        <p *ngIf="!captureActive() && !products().length">No items yet. Click “Select item on page” to capture one.</p>
+        <p *ngIf="!captureActive() && products().length">Tap an item to run a virtual try-on.</p>
       </header>
 
       <div class="gallery__grid" *ngIf="products().length; else emptyState">
@@ -23,13 +35,10 @@ import { ProductMetadata } from '../../models/try-on.models';
           (click)="onSelect(product.id)"
         >
           <img
-            NgOptimizedImage
-            [priority]="product.id === activeProductId()"
             [src]="product.imageUrl"
             [alt]="product.name"
-            width="128"
-            height="160"
             decoding="async"
+            loading="lazy"
           />
           <div class="gallery__details">
             <h3>{{ product.name }}</h3>
@@ -42,7 +51,8 @@ import { ProductMetadata } from '../../models/try-on.models';
       <ng-template #emptyState>
         <div class="gallery__empty">
           <span aria-hidden="true">🛍️</span>
-          <p>Open a compatible store page and select an outfit to try on.</p>
+          <p *ngIf="captureActive()">Hover items on the store page and click to save them.</p>
+          <p *ngIf="!captureActive()">Use the capture button above on any store page to add outfits here.</p>
         </div>
       </ng-template>
     </section>
@@ -59,6 +69,15 @@ import { ProductMetadata } from '../../models/try-on.models';
 
       .gallery__header {
         margin-bottom: 1rem;
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .gallery__header-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
       }
 
       .gallery__header h2 {
@@ -69,6 +88,29 @@ import { ProductMetadata } from '../../models/try-on.models';
       .gallery__header p {
         margin: 0.25rem 0 0;
         opacity: 0.75;
+      }
+
+      .gallery__capture-button {
+        cursor: pointer;
+        border: none;
+        border-radius: 999px;
+        padding: 0.55rem 1.25rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #060813;
+        background: linear-gradient(135deg, #79c2ff 0%, #7a5cff 100%);
+        box-shadow: 0 10px 20px rgba(69, 105, 196, 0.35);
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+
+      .gallery__capture-button:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+
+      .gallery__capture-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+        box-shadow: none;
       }
 
       .gallery__grid {
@@ -86,6 +128,7 @@ import { ProductMetadata } from '../../models/try-on.models';
         background: rgba(9, 11, 19, 0.85);
         border: 1px solid transparent;
         transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        overflow: hidden;
       }
 
       .gallery__item:hover {
@@ -97,6 +140,14 @@ import { ProductMetadata } from '../../models/try-on.models';
       .gallery__item--active {
         border-color: #7e6bff;
         box-shadow: 0 20px 32px rgba(80, 65, 192, 0.45);
+      }
+
+      .gallery__item img {
+        width: 100%;
+        height: 160px;
+        object-fit: contain;
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.05);
       }
 
       .gallery__details h3 {
@@ -131,22 +182,49 @@ import { ProductMetadata } from '../../models/try-on.models';
 export class ProductGalleryComponent {
   private readonly productList = signal<ProductMetadata[]>([]);
   private readonly selectedId = signal<string | null>(null);
+  private readonly captureActiveSignal = signal(false);
+  private readonly capturePendingSignal = signal(false);
 
-  @Input({ required: false })
-  set products(value: ProductMetadata[] | null | undefined) {
+  @Input({ alias: 'products' })
+  set productsInput(value: ProductMetadata[] | null | undefined) {
     this.productList.set(value ?? []);
   }
 
-  products = () => this.productList();
+  readonly products = computed(() => this.productList());
 
-  @Input({ required: false })
-  set activeProduct(value: string | null | undefined) {
+  @Input({ alias: 'activeProduct' })
+  set activeProductInput(value: string | null | undefined) {
     this.selectedId.set(value ?? null);
   }
 
-  activeProductId = () => this.selectedId();
+  readonly activeProductId = computed(() => this.selectedId());
+
+  @Input({ alias: 'captureActive' })
+  set captureActiveInput(value: boolean | null | undefined) {
+    this.captureActiveSignal.set(Boolean(value));
+  }
+
+  readonly captureActive = computed(() => this.captureActiveSignal());
+
+  @Input({ alias: 'capturePending' })
+  set capturePendingInput(value: boolean | null | undefined) {
+    this.capturePendingSignal.set(Boolean(value));
+  }
+
+  readonly capturePending = computed(() => this.capturePendingSignal());
+
+  readonly captureButtonLabel = computed(() => {
+    if (this.captureActive()) {
+      return 'Hover item and click…';
+    }
+    if (this.capturePending()) {
+      return 'Activating…';
+    }
+    return 'Select item on page';
+  });
 
   @Output() readonly productSelected = new EventEmitter<string>();
+  @Output() readonly captureRequested = new EventEmitter<void>();
 
   trackById(index: number, item: ProductMetadata): string {
     return item.id ?? `${index}`;
@@ -155,6 +233,14 @@ export class ProductGalleryComponent {
   onSelect(productId: string): void {
     this.selectedId.set(productId);
     this.productSelected.emit(productId);
+  }
+
+  onCaptureClick(): void {
+    if (this.capturePending()) {
+      return;
+    }
+
+    this.captureRequested.emit();
   }
 }
 

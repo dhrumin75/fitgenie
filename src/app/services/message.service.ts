@@ -18,17 +18,20 @@ export class MessageService {
 
   async sendMessage<TResult = unknown>(message: OutboundMessage): Promise<TResult | void> {
     if (!this.hasRuntimeMessaging()) {
-      console.warn('Chrome runtime messaging unavailable. Message dropped:', message);
+      console.warn('[FitGenie MessageService] Chrome runtime messaging unavailable. Message dropped:', message);
       return;
     }
 
+    console.log('[FitGenie MessageService] Sending message:', message);
     return new Promise<TResult | void>((resolve, reject) => {
       chrome.runtime.sendMessage(message, (response: TResult) => {
         const error = chrome.runtime.lastError;
         if (error) {
+          console.error('[FitGenie MessageService] Error sending message:', error, 'Message was:', message);
           reject(error);
           return;
         }
+        console.log('[FitGenie MessageService] Received response:', response);
         resolve(response);
       });
     });

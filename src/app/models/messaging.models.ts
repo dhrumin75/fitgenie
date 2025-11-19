@@ -1,6 +1,14 @@
+import { ProductMetadata } from './try-on.models';
+
+export type CaptureCompletionReason = 'completed' | 'cancelled' | 'error';
+
 export type RuntimeMessage =
   | TryOnGenerationMessage
+  | TryOnResultMessage
   | ProductSelectionMessage
+  | ProductSelectionsUpdatedMessage
+  | ProductCaptureActivatedMessage
+  | ProductCaptureFinishedMessage
   | UserPhotoUpdatedMessage;
 
 export interface BaseMessage<TType extends string = string> {
@@ -24,12 +32,31 @@ export interface TryOnResultMessage extends BaseMessage<'try-on:result'> {
   };
 }
 
+export interface ProductCaptureStartMessage extends BaseMessage<'product:capture:start'> {}
+
+export interface ProductCaptureActivatedMessage extends BaseMessage<'product:capture:activated'> {}
+
+export interface ProductCaptureFinishedMessage extends BaseMessage<'product:capture:finished'> {
+  readonly payload?: {
+    readonly reason: CaptureCompletionReason;
+    readonly message?: string;
+  };
+}
+
 export interface ProductSelectionMessage extends BaseMessage<'product:selected'> {
   readonly payload: {
     readonly productId: string;
     readonly productName: string;
     readonly productImage: string;
     readonly productUrl?: string;
+  };
+}
+
+export interface ProductSelectionsRequestMessage extends BaseMessage<'products:get'> {}
+
+export interface ProductSelectionsUpdatedMessage extends BaseMessage<'products:updated'> {
+  readonly payload: {
+    readonly products: ProductMetadata[];
   };
 }
 
@@ -40,5 +67,9 @@ export interface UserPhotoUpdatedMessage extends BaseMessage<'user-photo:updated
   };
 }
 
-export type OutboundMessage = TryOnGenerationMessage | UserPhotoUpdatedMessage;
+export type OutboundMessage =
+  | TryOnGenerationMessage
+  | UserPhotoUpdatedMessage
+  | ProductSelectionsRequestMessage
+  | ProductCaptureStartMessage;
 

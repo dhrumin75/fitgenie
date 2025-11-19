@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { UserProfile } from '../models/try-on.models';
+import { UserProfile, TryOnResult } from '../models/try-on.models';
 
 interface StorageProfile {
   photoDataUrl: string;
@@ -12,7 +12,9 @@ interface StorageProfile {
 })
 export class ChromeStorageService {
   private readonly storageKey = 'fitgenie:userProfile';
+  private readonly tryOnResultKey = 'fitgenie:latestTryOnResult';
   private inMemoryProfile: UserProfile | null = null;
+  private inMemoryResult: TryOnResult | null = null;
 
   async saveUserPhoto(photoDataUrl: string): Promise<UserProfile> {
     const profile: UserProfile = {
@@ -133,6 +135,42 @@ export class ChromeStorageService {
       photoDataUrl: value.photoDataUrl,
       uploadedAt: value.uploadedAt
     };
+  }
+
+  async saveTryOnResult(result: TryOnResult): Promise<void> {
+    if (this.hasChromeStorage()) {
+      await new Promise<void>((resolve, reject) => {
+        chrome.storage.local.set({ [this.tryOnResultKey]: result }, () => {
+          const error = chrome.runtime.lastError;
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      });
+    } else {
+      this.inMemoryResult = result;
+    }
+  }
+
+  async getTryOnResult(): Promise<TryOnResult | null> {
+    if (this.hasChromeStorage()) {
+      return new Promise<TryOnResult | null>((resolve, reject) => {
+        chrome.storage.local.get(this.tryOnResultKey, (result) => {
+          const error = chrome.runtime.lastError;
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          const value = result[this.tryOnResultKey] as TryOnResult | undefined;
+          resolve(value ?? null);
+        });
+      });
+    }
+
+    return this.inMemoryResult;
   }
 }
 

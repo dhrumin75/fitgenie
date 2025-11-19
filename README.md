@@ -67,20 +67,42 @@ The packaged extension is emitted to `dist/extension`. It contains:
 
 ## Configure the Gemini API Key
 
-FitGenie expects the Gemini API key in Chrome storage under `fitgenie:geminiApiKey`. You can seed it manually from the extension DevTools console:
+FitGenie looks for the Gemini key in three places (in order):
+
+1. `config/api-key.local.json` bundled with the extension (local-only file)
+2. Chrome storage (`fitgenie:geminiApiKey`)
+3. Future UI integrations (options page, etc.)
+
+### Local-only file (recommended for development)
+
+Create `config/api-key.local.json` (this path is git-ignored) with:
+
+```json
+{
+  "apiKey": "YOUR_API_KEY_HERE"
+}
+```
+
+Rebuild the extension after the file is created: `npm run build:extension`.
+
+On first run, the background worker will cache this value in Chrome storage so subsequent builds keep working even if the file is removed.
+
+### Manual storage seeding
+
+You can still seed the key directly via DevTools if preferred:
 
 ```js
 chrome.storage.local.set({ 'fitgenie:geminiApiKey': 'YOUR_API_KEY_HERE' });
 ```
 
-Alternatively, add a custom settings page or options page later to manage this value securely.
+Either approach keeps secrets out of git while allowing quick local testing.
 
 ## Development Notes
 
 - **Popup UI** uses Angular 17 standalone components (`fg-` prefix) and relies on signals for state management.
 - **Messaging** is handled through `ChromeStorageService` and `MessageService`, wrapping the Chrome APIs with typed interfaces (`src/app/models/messaging.models.ts`).
 - **Background worker** (`src/background/service-worker.ts`) receives try-on requests, calls the Gemini API, and broadcasts synthesized results back to the popup.
-- **Content script** listens for modifier-clicks on product imagery (`Alt/Ctrl/⌘ + click`) to collect product metadata and send it to the popup.
+- **Content script** enters a capture mode (triggered from the popup) that overlays a highlight, follows the cursor, and records the hovered product image when the user clicks.
 - **Assets**: Placeholder transparent PNG icons are included; replace the files in `src/assets/icons/` with branded artwork before publishing.
 
 ## Linting
@@ -94,7 +116,7 @@ npm run lint
 ## Next Steps
 
 - Add an options page for configuring the Gemini API key within the extension UI.
-- Harden product detection (e.g., by injecting a dedicated overlay UI).
+- Add a keyboard shortcut and in-popup cancel option for capture mode.
 - Persist try-on history and allow comparisons between different outfits.
 - Extend content security policies if the popup needs third-party resources.
 
